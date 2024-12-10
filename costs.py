@@ -283,7 +283,7 @@ with pd.ExcelWriter(excel_name) as writer:
         print(f"Processing account: {account['Name']}, {account['Id']}")
         
         df = account_services_costs(month, year, account['Id'])
-        df.to_excel(writer, sheet_name=account['Name'], index=False)
+        df.to_excel(writer, sheet_name=account['Name'], index=False, float_format="%.2f")
         # add empty line to separate the tables
         pd.DataFrame().to_excel(writer, sheet_name=account['Name'], index=False)
         # for each service in df, run service_usage_type_costs() and save the result in the same sheet, separated by an empty line
@@ -296,7 +296,7 @@ with pd.ExcelWriter(excel_name) as writer:
             startrow += 1
             # Write the DataFrame to Excel
             df_service = service_usage_type_costs(month, year, account['Id'], service)
-            df_service.to_excel(writer, sheet_name=account['Name'], startrow=startrow, index=False)
+            df_service.to_excel(writer, sheet_name=account['Name'], startrow=startrow, index=False, float_format="%.2f")
             startrow += df_service.shape[0] + 2
             # add empty line to separate the tables
             pd.DataFrame().to_excel(writer, sheet_name=account['Name'], startrow=startrow, index=False)
