@@ -301,3 +301,4 @@ with pd.ExcelWriter(excel_name) as writer:
             # add empty line to separate the tables
             pd.DataFrame().to_excel(writer, sheet_name=account['Name'], startrow=startrow, index=False)
             
+clean_excel(excel_name)
