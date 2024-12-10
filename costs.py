@@ -198,16 +198,24 @@ def service_usage_type_costs(month: int, year: int, account_id, service):
         ],
         Metrics=['AmortizedCost'],
         Filter={
-            'Dimensions': {
-                'Key': 'LINKED_ACCOUNT',
-                'Values': [
-                    account_id
-                ],
-                'Key': 'SERVICE',
-                'Values': [
-                    service
-                ]
-            }
+            'And': [
+                {
+                    'Dimensions': {
+                        'Key': 'LINKED_ACCOUNT',
+                        'Values': [
+                            account_id
+                        ]
+                    }
+                },
+                {
+                    'Dimensions': {
+                        'Key': 'SERVICE',
+                        'Values': [
+                            service
+                        ]
+                    }
+                }
+            ]
         }
     )
 
@@ -278,7 +286,7 @@ with pd.ExcelWriter(excel_name) as writer:
     df_all_accounts = all_account_costs(month, year)
     df_all_accounts.to_excel(writer, sheet_name='Accounts', index=False, float_format="%.2f")
     account_list = organizations.list_accounts()
-    
+    # For each account, get the costs of the services and usage types
     for account in account_list['Accounts']:
         print(f"Processing account: {account['Name']}, {account['Id']}")
         
@@ -286,7 +294,6 @@ with pd.ExcelWriter(excel_name) as writer:
         df.to_excel(writer, sheet_name=account['Name'], index=False, float_format="%.2f")
         # add empty line to separate the tables
         pd.DataFrame().to_excel(writer, sheet_name=account['Name'], index=False)
-        # for each service in df, run service_usage_type_costs() and save the result in the same sheet, separated by an empty line
         startrow = df.shape[0] + 2
         
         for service in df['Service']:
@@ -294,7 +301,7 @@ with pd.ExcelWriter(excel_name) as writer:
             df_service_name = pd.DataFrame([service], columns=["Service"])
             df_service_name.to_excel(writer, sheet_name=account['Name'], startrow=startrow, index=False, header=False)            
             startrow += 1
-            # Write the DataFrame to Excel
+            # Create a Dataframe with the Service Usage Type Costs
             df_service = service_usage_type_costs(month, year, account['Id'], service)
             df_service.to_excel(writer, sheet_name=account['Name'], startrow=startrow, index=False, float_format="%.2f")
             startrow += df_service.shape[0] + 2
