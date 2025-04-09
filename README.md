@@ -1,5 +1,7 @@
 # Cost Details AWS
 
+[![Built with Devbox](https://www.jetify.com/img/devbox/shield_galaxy.svg)](https://www.jetify.com/devbox/docs/contributor-quickstart/)
+
 This project is a simple script that uses the AWS SDK to get the cost details from AWS accounts.
 
 It is meant to be used as a starting point for cost analysis and reporting, by providing all the necessary information that can be obtained from the AWS Cost Explorer API.
@@ -8,9 +10,20 @@ It is meant to be used as a starting point for cost analysis and reporting, by p
 
 This project was build using python 3.12.2.
 
-To install the project, you need to have python installed in your machine. You can download it from the [official website](https://www.python.org/downloads/).
+To install the project, you need to have python installed in your machine. You can download it from the [official website](https://www.python.org/downloads/) or use [devbox](https://www.jetify.com/docs/devbox/) to install it.
 
-After installing python, you can clone the repository and install the dependencies using the following commands:
+If you are using devbox, you only need to run the following commands:
+
+```bash
+# initialize devbox, every time you want to work on the project
+devbox shell
+# more info with: `devbox info python`
+
+# install dependencies, only on first time
+pip install -r requirements.txt
+```
+
+If installing python, you can clone the repository and install the dependencies using the following commands:
 
 ```bash
 # Activate the virtual environment
