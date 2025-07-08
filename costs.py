@@ -8,6 +8,8 @@ session = boto3.Session(profile_name='root')
 ce = session.client('ce')
 organizations = session.client('organizations')
 
+COST_TYPE = 'AmortizedCost'
+
 
 def get_dates(month: int, year: int):
     """
@@ -61,7 +63,7 @@ def all_account_costs(month: int, year: int):
                 'End': end_date
             },
             Granularity='MONTHLY',
-            Metrics=['AmortizedCost'],
+            Metrics=[COST_TYPE],
             Filter={
                 'Dimensions': {
                     'Key': 'LINKED_ACCOUNT',
@@ -72,8 +74,8 @@ def all_account_costs(month: int, year: int):
             }
         )
 
-        amount1 = float(response['ResultsByTime'][0]['Total']['AmortizedCost']['Amount'])
-        amount2 = float(response['ResultsByTime'][1]['Total']['AmortizedCost']['Amount'])
+        amount1 = float(response['ResultsByTime'][0]['Total'][COST_TYPE]['Amount'])
+        amount2 = float(response['ResultsByTime'][1]['Total'][COST_TYPE]['Amount'])
 
         absolute_change = amount2 - amount1
         percent_change = (absolute_change / amount1) * 100 if amount1 != 0 else 0
@@ -109,6 +111,8 @@ def account_services_costs(month: int, year:int, account_id):
     """
     start_date, end_date = get_dates(month, year)
 
+    print(f"Getting costs for account {account_id} from {start_date} to {end_date}")
+    
     response = ce.get_cost_and_usage(
         TimePeriod={
             'Start': start_date,
@@ -121,7 +125,7 @@ def account_services_costs(month: int, year:int, account_id):
                 'Key': 'SERVICE'
             }
         ],
-        Metrics=['AmortizedCost'],
+        Metrics=[COST_TYPE],
         Filter={
             'Dimensions': {
                 'Key': 'LINKED_ACCOUNT',
@@ -137,12 +141,12 @@ def account_services_costs(month: int, year:int, account_id):
     # create a dataframe with the following columns ["Service", "Cost_TimePeriod_0", "Cost_TimePeriod_1", "Cost_TimePeriod_x", "Absolute Diff", "Relative Diff (%)"]
     for group in response['ResultsByTime'][0]['Groups']:
         service = group['Keys'][0]
-        amount1 = float(group['Metrics']['AmortizedCost']['Amount'])
+        amount1 = float(group['Metrics'][COST_TYPE]['Amount'])
         
         amount2 = 0
         for group2 in response['ResultsByTime'][1]['Groups']:
             if group2['Keys'][0] == service:
-                amount2 = float(group2['Metrics']['AmortizedCost']['Amount'])
+                amount2 = float(group2['Metrics'][COST_TYPE]['Amount'])
                 break
         
         amount_sum = amount1 + amount2
@@ -196,7 +200,7 @@ def service_usage_type_costs(month: int, year: int, account_id, service):
                 'Key': 'USAGE_TYPE'
             }
         ],
-        Metrics=['AmortizedCost'],
+        Metrics=[COST_TYPE],
         Filter={
             'And': [
                 {
@@ -221,17 +225,33 @@ def service_usage_type_costs(month: int, year: int, account_id, service):
 
     data = []
     
-    # create a dataframe with the following columns ["Service", "Cost_TimePeriod_0", "Cost_TimePeriod_1", "Cost_TimePeriod_x", "Absolute Diff", "Relative Diff (%)"]
+    # print response to a json file
+    with open('response.json', 'w') as f:
+        import json
+        json.dump(response, f, indent=4)
+    
+    # Create a dictionary to store data from both time periods
+    usage_data = {}
+
+    # Process the first time period
     for group in response['ResultsByTime'][0]['Groups']:
         usage_type = group['Keys'][0]
-        amount1 = float(group['Metrics']['AmortizedCost']['Amount'])
-        
-        amount2 = 0
-        for group2 in response['ResultsByTime'][1]['Groups']:
-            if group2['Keys'][0] == usage_type:
-                amount2 = float(group2['Metrics']['AmortizedCost']['Amount'])
-                break
-        
+        amount1 = float(group['Metrics'][COST_TYPE]['Amount'])
+        usage_data[usage_type] = {'amount1': amount1, 'amount2': 0}
+
+    # Process the second time period
+    for group in response['ResultsByTime'][1]['Groups']:
+        usage_type = group['Keys'][0]
+        amount2 = float(group['Metrics'][COST_TYPE]['Amount'])
+        if usage_type in usage_data:
+            usage_data[usage_type]['amount2'] = amount2
+        else:
+            usage_data[usage_type] = {'amount1': 0, 'amount2': amount2}
+
+    # Create the final dataframe
+    for usage_type, amounts in usage_data.items():
+        amount1 = amounts['amount1']
+        amount2 = amounts['amount2']
         amount_sum = amount1 + amount2
         absolute_change = amount2 - amount1
         percent_change = (absolute_change / amount1) * 100 if amount1 != 0 else 0
@@ -279,7 +299,7 @@ def clean_excel(file_name: str):
     workbook.save(file_name)
 
 
-month, year = 3, 2025
+month, year = 6, 2025
 excel_name = "output.xlsx"
 
 with pd.ExcelWriter(excel_name) as writer:
