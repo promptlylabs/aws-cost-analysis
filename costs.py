@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from openpyxl import load_workbook
+from openpyxl.formatting.rule import ColorScaleRule
+from openpyxl.styles import Color
 
 session = boto3.Session(profile_name='root')
 ce = session.client('ce')
@@ -225,11 +227,6 @@ def service_usage_type_costs(month: int, year: int, account_id, service):
 
     data = []
     
-    # print response to a json file
-    with open('response.json', 'w') as f:
-        import json
-        json.dump(response, f, indent=4)
-    
     # Create a dictionary to store data from both time periods
     usage_data = {}
 
@@ -272,8 +269,8 @@ def service_usage_type_costs(month: int, year: int, account_id, service):
 
 def clean_excel(file_name: str):
     """
-    Adjusts the column widths of an Excel file
-    
+    Adjusts the column widths and applies conditional formatting to an Excel file
+
     Parameters:
         file_name (str): The name of the Excel file to be adjusted
     """ 
@@ -294,6 +291,45 @@ def clean_excel(file_name: str):
                     pass
             adjusted_width = (max_length + 2)
             worksheet.column_dimensions[column].width = adjusted_width
+
+        # Expand the "Details" column width
+        if "Details" in [cell.value for cell in worksheet[1]]:
+            details_column_letter = next(col[0].column_letter for col in worksheet.columns if col[0].value == "Details")
+            worksheet.column_dimensions[details_column_letter].width *= 10
+
+        # Apply conditional formatting to "Absolute Diff" and "Relative Diff (%)" columns
+        for header, column_letter in [("Absolute Diff", "E"), ("Relative Diff (%)", "F")]:
+            row = 1
+            while row <= worksheet.max_row:
+                # Find the header cell
+                if worksheet[f"{column_letter}{row}"].value == header:
+                    start_row = row + 1
+                    end_row = start_row
+
+                    # Find the range until the next empty cell
+                    while worksheet[f"{column_letter}{end_row}"].value is not None:
+                        end_row += 1
+                    end_row -= 1
+
+                    # Determine the min and max values in the range
+                    values = [worksheet[f"{column_letter}{r}"].value for r in range(start_row, end_row + 1)]
+                    min_value = min(values)
+                    max_value = max(values)
+
+                    # Define the color scale rule
+                    color_scale_rule = ColorScaleRule(
+                        start_type="num", start_value=max_value, start_color=Color("63be7b"),
+                        mid_type="num", mid_value=0, mid_color=Color("FFFFFF"),
+                        end_type="num", end_value=min_value, end_color=Color("f56a6b")
+                    )
+
+                    # Apply the rule to the column
+                    worksheet.conditional_formatting.add(f"{column_letter}{start_row}:{column_letter}{end_row}", color_scale_rule)
+                    
+                    # Move to the next table
+                    row = end_row + 2
+                else:
+                    row += 1
 
     # Save the workbook
     workbook.save(file_name)
